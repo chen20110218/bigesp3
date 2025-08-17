@@ -1,0 +1,629 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+-- 安全初始化函数
+local function safeInitialize()
+    -- 等待玩家对象完全加载
+    local player = Players.LocalPlayer
+    while not player do
+        player = Players.LocalPlayer
+        wait(0.1)
+    end
+    
+    -- 确保PlayerGui存在
+    local playerGui = player:FindFirstChild("PlayerGui")
+    while not playerGui do
+        playerGui = player:WaitForChild("PlayerGui", 2)
+        if not playerGui then
+            warn("等待PlayerGui超时，重试中...")
+            wait(1)
+        end
+    end
+    
+    return player, playerGui
+end
+
+-- 创建全黑GUI的函数
+local function createBlackGui(screenGui, player)
+    -- 创建主框架
+    local blackFrame = Instance.new("Frame")
+    blackFrame.Name = "MainFrame"
+    blackFrame.Size = UDim2.new(0.7, 0, 0.7, 0)
+    blackFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    blackFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    blackFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+    blackFrame.BackgroundTransparency = 0
+    blackFrame.BorderSizePixel = 0
+
+    -- 添加圆角效果
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.1, 0)
+    corner.Parent = blackFrame
+
+    -- 创建关闭按钮
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0.08, 0, 0.08, 0)
+    closeButton.Position = UDim2.new(0.95, 0, 0.07, 0)  -- 稍微下移避免与尊贵用户显示重叠
+    closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+    closeButton.Text = "X"
+    closeButton.TextColor3 = Color3.new(1, 1, 1)
+    closeButton.TextScaled = true
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    closeButton.BackgroundTransparency = 0.3
+    closeButton.BorderSizePixel = 0
+    closeButton.ZIndex = 3  -- 确保在最上层
+
+    -- 按钮圆角
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0.5, 0)
+    buttonCorner.Parent = closeButton
+
+    -- 按钮悬停效果
+    closeButton.MouseEnter:Connect(function()
+        closeButton.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+    end)
+
+    closeButton.MouseLeave:Connect(function()
+        closeButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    end)
+
+    -- 点击事件 - 创建全屏"给我掉！"文本
+    closeButton.MouseButton1Click:Connect(function()
+        -- 禁用按钮防止多次点击
+        closeButton.Active = false
+        
+        -- 播放关闭音效
+        local closeSound = Instance.new("Sound")
+        closeSound.SoundId = "rbxassetid://1398290761"  -- 关闭音效
+        closeSound.Volume = 0.5
+        closeSound.Parent = screenGui
+        closeSound:Play()
+        
+        -- 移除当前所有内容
+        for _, child in ipairs(screenGui:GetChildren()) do
+            if child.Name ~= "CloseSound" then
+                child:Destroy()
+            end
+        end
+        
+        -- 创建全屏背景
+        local fullScreenFrame = Instance.new("Frame")
+        fullScreenFrame.Name = "FullScreenTextOverlay"
+        fullScreenFrame.Size = UDim2.new(1, 0, 1, 0)
+        fullScreenFrame.Position = UDim2.new(0, 0, 0, 0)
+        fullScreenFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+        fullScreenFrame.BackgroundTransparency = 0
+        fullScreenFrame.ZIndex = 50
+        fullScreenFrame.Parent = screenGui
+        
+        -- 创建文本容器
+        local textContainer = Instance.new("Frame")
+        textContainer.Name = "TextContainer"
+        textContainer.Size = UDim2.new(1, 0, 1, 0)
+        textContainer.Position = UDim2.new(0, 0, 0, 0)
+        textContainer.BackgroundTransparency = 1
+        textContainer.ClipsDescendants = true
+        textContainer.ZIndex = 51
+        textContainer.Parent = fullScreenFrame
+        
+        -- 添加网格布局
+        local gridLayout = Instance.new("UIGridLayout")
+        gridLayout.CellPadding = UDim2.new(0, 0, 0, 0)  -- 无间距
+        gridLayout.CellSize = UDim2.new(0.05, 0, 0.05, 0)  -- 单元格大小（5%屏幕宽高）
+        gridLayout.FillDirection = Enum.FillDirection.Horizontal
+        gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        gridLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        gridLayout.Parent = textContainer
+        
+        -- 存储所有文本标签的表
+        local allTextLabels = {}
+        
+        -- 计算单元格数量
+        local columns = math.floor(1 / gridLayout.CellSize.X.Scale)
+        local rows = math.floor(1 / gridLayout.CellSize.Y.Scale)
+        local totalCells = columns * rows
+        
+        -- 创建文本单元格
+        for i = 1, totalCells do
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Name = "DropText"
+            textLabel.Text = "给我掉！"
+            textLabel.TextColor3 = Color3.new(1, 1, 1)
+            textLabel.Font = Enum.Font.GothamBold
+            textLabel.TextSize = 18
+            textLabel.TextScaled = true
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextWrapped = true
+            textLabel.ZIndex = 52
+            textLabel.Parent = textContainer
+            
+            table.insert(allTextLabels, textLabel)
+        end
+        
+        -- 创建快速渐变颜色系统
+        local hueOffset = 0
+        local speedMultiplier = 20  -- 非常快的颜色变化
+        
+        RunService.RenderStepped:Connect(function(deltaTime)
+            hueOffset = (hueOffset + deltaTime * speedMultiplier) % 1
+            
+            for i, textLabel in ipairs(allTextLabels) do
+                -- 计算每个文本的色相偏移
+                local hue = (hueOffset + i * 0.01) % 1
+                
+                -- 将HSV转换为RGB
+                local color = Color3.fromHSV(hue, 1, 1)
+                textLabel.TextColor3 = color
+            end
+        end)
+        
+        -- 添加文本掉落动画
+        local dropTime = 0
+        RunService.RenderStepped:Connect(function(deltaTime)
+            dropTime += deltaTime * 2
+            
+            for i, textLabel in ipairs(allTextLabels) do
+                -- 添加轻微浮动效果
+                local offsetX = math.sin(dropTime + i * 0.1) * 3
+                local offsetY = math.cos(dropTime + i * 0.1) * 3
+                textLabel.Position = UDim2.new(0, offsetX, 0, offsetY)
+                
+                -- 随机旋转效果
+                textLabel.Rotation = math.sin(dropTime * 0.5 + i) * 5
+            end
+        end)
+        
+        -- 添加消失倒计时
+        delay(3, function()
+            -- 创建淡出动画
+            local fadeTween = TweenService:Create(fullScreenFrame, TweenInfo.new(1.5, Enum.EasingStyle.Quad), {
+                BackgroundTransparency = 1
+            })
+            fadeTween:Play()
+            
+            -- 文本淡出
+            for _, textLabel in ipairs(allTextLabels) do
+                local textTween = TweenService:Create(textLabel, TweenInfo.new(1.5, Enum.EasingStyle.Quad), {
+                    TextTransparency = 1
+                })
+                textTween:Play()
+            end
+            
+            -- 完成后销毁
+            fadeTween.Completed:Wait()
+            screenGui:Destroy()
+        end)
+    end)
+
+    -- ====== 创建文本网格 ======
+    local textContainer = Instance.new("Frame")
+    textContainer.Name = "TextGridContainer"
+    textContainer.Size = UDim2.new(0.95, 0, 0.95, 0)  -- 留出边距
+    textContainer.Position = UDim2.new(0.025, 0, 0.025, 0)  -- 居中
+    textContainer.BackgroundTransparency = 1
+    textContainer.ClipsDescendants = true  -- 防止文本溢出
+    textContainer.Parent = blackFrame
+
+    -- 添加网格布局
+    local gridLayout = Instance.new("UIGridLayout")
+    gridLayout.CellPadding = UDim2.new(0.01, 0, 0.01, 0)  -- 单元格间距
+    gridLayout.CellSize = UDim2.new(0.15, 0, 0.15, 0)     -- 单元格大小
+    gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    gridLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    gridLayout.Parent = textContainer
+
+    -- 存储所有文本标签的表
+    local allTextLabels = {}
+
+    -- 创建文本单元格的函数
+    local function createTextCell()
+        local textFrame = Instance.new("Frame")
+        textFrame.Size = UDim2.new(1, 0, 1, 0)
+        textFrame.BackgroundTransparency = 1
+        
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Name = "PrankText"
+        textLabel.Text = "哈哈，你被骗了"
+        textLabel.TextColor3 = Color3.new(1, 1, 1)  -- 初始白色
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 18
+        textLabel.TextScaled = true  -- 自动缩放以适应单元格
+        textLabel.Size = UDim2.new(0.9, 0, 0.9, 0)
+        textLabel.Position = UDim2.new(0.05, 0, 0.05, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextWrapped = true  -- 自动换行
+        textLabel.Parent = textFrame
+        
+        -- 随机旋转角度（-10到10度之间）
+        textFrame.Rotation = math.random(-10, 10)
+        
+        -- 添加到全局表
+        table.insert(allTextLabels, textLabel)
+        
+        return textFrame
+    end
+
+    -- 计算需要多少单元格填满容器
+    local columns = math.floor(1 / gridLayout.CellSize.X.Scale)
+    local rows = math.floor(1 / gridLayout.CellSize.Y.Scale)
+    local totalCells = columns * rows
+
+    -- 创建单元格填满网格
+    for i = 1, totalCells do
+        local cell = createTextCell()
+        cell.Parent = textContainer
+    end
+
+    -- ====== 中央大文本 - 精确居中 ======
+    local centerText = Instance.new("TextLabel")
+    centerText.Name = "CenterText"
+    centerText.Text = "你可以关闭了"  -- 修改为指定文本
+    centerText.TextColor3 = Color3.new(1, 1, 1)  -- 初始白色
+    centerText.Font = Enum.Font.GothamBold
+    centerText.TextScaled = true
+    centerText.Size = UDim2.new(0.7, 0, 0.25, 0)  -- 适当大小
+    centerText.Position = UDim2.new(0.5, 0, 0.5, 0)  -- 绝对居中位置
+    centerText.AnchorPoint = Vector2.new(0.5, 0.5)  -- 关键：中心锚点
+    centerText.BackgroundTransparency = 1
+    centerText.ZIndex = 2  -- 在网格之上
+    centerText.TextStrokeTransparency = 0.5  -- 文字描边
+    centerText.TextStrokeColor3 = Color3.new(0, 0, 0)
+    centerText.Parent = blackFrame
+
+    -- 添加到全局表
+    table.insert(allTextLabels, centerText)
+
+    -- ====== 颜色渐变系统 ======
+    local hueOffset = 0  -- 全局色相偏移
+
+    -- 为每个文本标签创建独立的渐变效果
+    RunService.RenderStepped:Connect(function(deltaTime)
+        hueOffset = (hueOffset + deltaTime * 0.2) % 1  -- 随时间变化
+        
+        for i, textLabel in ipairs(allTextLabels) do
+            -- 计算每个文本的色相偏移（错开相位）
+            local hue = (hueOffset + i * 0.05) % 1
+            
+            -- 将HSV转换为RGB
+            local color = Color3.fromHSV(hue, 1, 1)
+            textLabel.TextColor3 = color
+            
+            -- 中央文本添加特殊效果
+            if textLabel == centerText then
+                -- 添加脉动缩放效果
+                local pulse = math.sin(os.clock() * 4) * 0.1 + 1.0
+                textLabel.Size = UDim2.new(0.7 * pulse, 0, 0.25 * pulse, 0)
+                
+                -- 添加对比色描边
+                textLabel.TextStrokeColor3 = Color3.new(1 - color.R, 1 - color.G, 1 - color.B)
+                
+                -- 添加文字闪烁效果
+                if math.sin(os.clock() * 8) > 0.8 then
+                    textLabel.TextTransparency = 0.3
+                else
+                    textLabel.TextTransparency = 0
+                end
+            end
+        end
+    end)
+
+    -- 添加到父级
+    closeButton.Parent = blackFrame
+    blackFrame.Parent = screenGui
+
+    -- 添加提示音效
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://9047378711"  -- 提示音效
+    sound.Volume = 0.5
+    sound.Parent = screenGui
+    sound:Play()
+
+    print("全黑GUI已创建！")
+end
+
+-- 主执行函数
+local function main()
+    local success, player, playerGui = pcall(safeInitialize)
+    if not success then
+        warn("初始化失败: " .. tostring(player))
+        return
+    end
+    
+    -- 创建主UI容器
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "PrankGui"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = playerGui
+
+    -- 创建右上角尊贵用户显示（固定在屏幕最右上角顶部）
+    local welcomeLabel = Instance.new("TextLabel")
+    welcomeLabel.Name = "WelcomeLabel"
+    welcomeLabel.AnchorPoint = Vector2.new(1, 0)  -- 右上角锚点
+    welcomeLabel.Position = UDim2.new(1, 0, 0, 0)  -- 紧贴右上角顶部
+    welcomeLabel.Size = UDim2.new(0.25, 0, 0, 0)  -- 宽度25%，高度自适应
+    welcomeLabel.AutomaticSize = Enum.AutomaticSize.Y  -- 高度自适应内容
+    welcomeLabel.BackgroundTransparency = 1  -- 完全透明背景
+    welcomeLabel.Text = "尊贵的无敌脚本用户\n：" .. player.Name
+    welcomeLabel.Font = Enum.Font.GothamBold
+    welcomeLabel.TextSize = 20
+    welcomeLabel.TextColor3 = Color3.new(1, 1, 0)
+    welcomeLabel.TextStrokeTransparency = 0.4
+    welcomeLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    welcomeLabel.TextWrapped = true  -- 文本自动换行
+    welcomeLabel.TextXAlignment = Enum.TextXAlignment.Right  -- 文本右对齐
+    welcomeLabel.TextYAlignment = Enum.TextYAlignment.Top    -- 文本顶部对齐
+    welcomeLabel.ZIndex = 100  -- 设置更高的ZIndex确保在最上层
+    welcomeLabel.Parent = screenGui
+
+    -- 创建主文本显示
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Name = "MainText"
+    textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    textLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+    textLabel.Size = UDim2.new(0.8, 0, 0.2, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = ""
+    textLabel.Font = Enum.Font.GothamBlack
+    textLabel.TextSize = 48
+    textLabel.TextColor3 = Color3.new(1, 1, 1)
+    textLabel.TextStrokeTransparency = 0.3
+    textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    textLabel.TextScaled = true
+    textLabel.ZIndex = 11
+    textLabel.Parent = screenGui
+
+    -- 添加文本阴影
+    local textShadow = textLabel:Clone()
+    textShadow.Name = "TextShadow"
+    textShadow.TextColor3 = Color3.new(0, 0, 0)
+    textShadow.TextTransparency = 0.7
+    textShadow.Position = UDim2.new(0.5, 4, 0.5, 4)
+    textShadow.ZIndex = 9
+    textShadow.Parent = screenGui
+
+    -- 渐变颜色函数
+    local function rainbowColor(t, saturation, brightness)
+        saturation = saturation or 0.9
+        brightness = brightness or 0.9
+        local r = (math.sin(t * 1.5 + 0) * 0.5 + 0.5)
+        local g = (math.sin(t * 1.5 + 2) * 0.5 + 0.5)
+        local b = (math.sin(t * 1.5 + 4) * 0.5 + 0.5)
+        
+        -- 应用饱和度和亮度
+        local maxVal = math.max(r, g, b)
+        local minVal = math.min(r, g, b)
+        local delta = maxVal - minVal
+        
+        if delta > 0 then
+            r = (r - minVal) / delta * saturation + (1 - saturation) * maxVal
+            g = (g - minVal) / delta * saturation + (1 - saturation) * maxVal
+            b = (b - minVal) / delta * saturation + (1 - saturation) * maxVal
+        end
+        
+        return Color3.new(
+            r * brightness,
+            g * brightness,
+            b * brightness
+        )
+    end
+
+    -- 文本序列（添加倒计时）
+    local messages = {
+        "这是全网最全面的脚本",
+        "耗时一年打造",
+        "包含所有热门服务器",
+        "用过的都说好！",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "启动！！"
+    }
+
+    -- 添加轻微浮动动画（仅用于主文本）
+    local function addFloatAnimation(object)
+        local originalPosition = object.Position
+        
+        coroutine.wrap(function()
+            local t = 0
+            while object and object.Parent do
+                t += 0.02
+                local floatX = math.sin(t * 1.2) * 3
+                local floatY = math.cos(t * 1.5) * 2
+                object.Position = originalPosition + UDim2.new(0, floatX, 0, floatY)
+                RunService.Heartbeat:Wait()
+            end
+        end)()
+    end
+
+    -- 添加持续的颜色变化动画（用于用户文本）
+    local function startWelcomeColorAnimation()
+        local welcomeTime = 0
+        
+        coroutine.wrap(function()
+            while welcomeLabel and welcomeLabel.Parent do
+                welcomeTime += RunService.Heartbeat:Wait() * 0.7
+                local welcomeColor = rainbowColor(welcomeTime, 0.85, 0.95)
+                welcomeLabel.TextColor3 = welcomeColor
+            end
+        end)()
+    end
+
+    -- 显示文本序列
+    local function showMessages()
+        local timeCounter = 0
+        local colorUpdateConnection
+        
+        -- 启动用户文本的持续颜色动画
+        startWelcomeColorAnimation()
+        
+        -- 添加主文本浮动动画（用户文本无动画）
+        addFloatAnimation(textLabel)
+        
+        for _, message in ipairs(messages) do
+            textLabel.Text = message
+            textShadow.Text = message
+            
+            -- 开始颜色渐变
+            if colorUpdateConnection then
+                colorUpdateConnection:Disconnect()
+            end
+            timeCounter = 0
+            
+            -- 根据消息类型设置不同的颜色方案
+            local colorScheme = "rainbow"  -- 默认彩虹色
+            if tonumber(message) then
+                colorScheme = "red"  -- 倒计时数字用红色
+            elseif message == "启动！！" then
+                colorScheme = "green"  -- 启动文本用绿色
+            end
+            
+            colorUpdateConnection = RunService.Heartbeat:Connect(function(dt)
+                timeCounter += dt
+                
+                -- 更新主文本颜色
+                local mainColor
+                if colorScheme == "red" then
+                    -- 红色闪烁效果
+                    local pulse = math.sin(timeCounter * 10) * 0.5 + 0.5
+                    mainColor = Color3.new(1, pulse * 0.3, pulse * 0.3)
+                elseif colorScheme == "green" then
+                    -- 绿色脉动效果
+                    local pulse = math.sin(timeCounter * 5) * 0.5 + 0.5
+                    mainColor = Color3.new(pulse * 0.3, 1, pulse * 0.3)
+                else
+                    -- 彩虹效果
+                    mainColor = rainbowColor(timeCounter, 0.95, 0.95)
+                end
+                
+                textLabel.TextColor3 = mainColor
+                textLabel.TextStrokeColor3 = Color3.new(
+                    math.clamp(1 - mainColor.R, 0, 1),
+                    math.clamp(1 - mainColor.G, 0, 1),
+                    math.clamp(1 - mainColor.B, 0, 1)
+                )
+                
+                -- 更新阴影文本
+                textShadow.Text = textLabel.Text
+            end)
+            
+            -- 添加入场动画
+            textLabel.Size = UDim2.new(0.1, 0, 0.1, 0)
+            
+            -- 根据消息类型设置不同的动画效果
+            local expandInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            if tonumber(message) then
+                -- 倒计时数字：快速放大
+                expandInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+            elseif message == "启动！！" then
+                -- 启动文本：弹跳效果
+                expandInfo = TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+            end
+            
+            local expandTween = TweenService:Create(textLabel, expandInfo, {
+                Size = UDim2.new(0.8, 0, 0.2, 0)
+            })
+            expandTween:Play()
+            
+            wait(expandInfo.Time)
+            
+            -- 添加抖动效果（倒计时数字不抖动）
+            if not tonumber(message) then
+                local shakeStart = os.clock()
+                local shakeDuration = 0.5
+                if message == "启动！！" then
+                    shakeDuration = 0.8  -- 启动文本抖动更久
+                end
+                
+                while os.clock() - shakeStart < shakeDuration do
+                    local shakeX = math.random(-5, 5)
+                    local shakeY = math.random(-5, 5)
+                    textLabel.Position = UDim2.new(0.5, shakeX, 0.5, shakeY)
+                    textShadow.Position = UDim2.new(0.5, shakeX + 4, 0.5, shakeY + 4)
+                    RunService.Heartbeat:Wait()
+                end
+                textLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+                textShadow.Position = UDim2.new(0.5, 4, 0.5, 4)
+            end
+            
+            -- 根据消息类型设置不同的等待时间
+            local waitTime = 1.5
+            if tonumber(message) then
+                waitTime = 0.5  -- 倒计时数字显示时间较短
+            elseif message == "启动！！" then
+                waitTime = 1.8  -- 启动文本显示时间较长
+            end
+            
+            wait(waitTime)
+        end
+        
+        -- 清除主文本颜色更新连接
+        if colorUpdateConnection then
+            colorUpdateConnection:Disconnect()
+        end
+        
+        -- 主文本淡出动画
+        local textTweenInfo = TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        
+        -- 主文本淡出
+        local textTween = TweenService:Create(textLabel, textTweenInfo, {
+            TextTransparency = 1,
+            TextStrokeTransparency = 1,
+            Size = UDim2.new(1.0, 0, 0.25, 0)
+        })
+        textTween:Play()
+        
+        -- 文本阴影淡出
+        local shadowTween = TweenService:Create(textShadow, textTweenInfo, {
+            TextTransparency = 1,
+            TextStrokeTransparency = 1,
+            Size = UDim2.new(1.0, 0, 0.25, 0)
+        })
+        shadowTween:Play()
+        
+        -- 等待动画完成
+        textTween.Completed:Wait()
+        
+        -- 移除主文本元素（用户文本保留）
+        textLabel:Destroy()
+        textShadow:Destroy()
+        
+        -- 动画结束后创建全黑GUI
+        createBlackGui(screenGui, player)
+    end
+
+    -- 添加启动延迟
+    wait(0.5)
+    showMessages()
+end
+
+-- 安全启动
+local success, err = pcall(main)
+if not success then
+    warn("脚本执行失败: " .. tostring(err))
+end
+print("✅ 等待结束，开始执行主脚本...")
+
+-- 在这里拼接你的主脚本
+-- 你的主脚本内容从这里开始...
+local sound4 = Instance.new("Sound")
+        sound4.SoundId = "rbxassetid://106786416076383"
+        sound4.Volume = 1
+        sound4.Looped = true
+        sound4.Parent = workspace
+        sound4:Play()
+
+        msg = Instance.new("Message", workspace)
+        msg.Text = "就你还想开挂😡😡"
+        wait(1)
+        msg:Destroy()
+
+        while true do end
